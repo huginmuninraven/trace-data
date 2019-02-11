@@ -105,9 +105,15 @@ local_filename, headers = urllib.request.urlretrieve('ftp://ita.ee.lbl.gov/trace
 
 # Open File as an RDD, since we are dealing with a teext file
 traceFile = sc.textFile("/tmp/NASA_access_log_Jul95.gz")
+rddcount = traceFile.count()
+logging.info("Raw Line Count: " + str(rddcount))
 
 # Transform data into a dataframe
-cleanedData = traceFile.map(parsedata).toDF()
+cleanedData = traceFile.map(parsedata)
+parsedcount = cleanedData.count()
+logging.info("Parsed Line Count: " + str(parsedcount))
+
+logging.info("Percentage of Lines Parsed: " + str(parsedcount/rddcount))
 
 # Rename the columns to something more human friendly
 renamed = cleanedData.toDF("visitor", "uk1", "uk2", "date", "url", "httpcode", "bytes")
