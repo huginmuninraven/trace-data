@@ -31,12 +31,12 @@ sc.setLogLevel("WARN")
 # In a distributed cluster,  leverage the Spark History Server
 # and send the data out for visualization to an external store (Elasticsearch/Grafana/Prometheus)
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                    filename='/tmp/trace-data-' + time.strftime('%Y_%m_%d_%H_%M' + '.log'),
+                    filename='/opt/trace-data-' + time.strftime('%Y_%m_%d_%H_%M' + '.log'),
                     level=logging.INFO)
 
 
 
-# Argument Parsing #
+# Argument Parsing
 def parse_args():
     # Declare a positional argument, input is an integer.
     parser = argparse.ArgumentParser()
@@ -91,7 +91,7 @@ def main():
     # Downloads file locally to the /tmp directory, since we aren't using S3 or HDFS
     urllib.request.urlretrieve('ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz', '/tmp/NASA_access_log_Jul95.gz')
 
-    # Open File as an RDD, since we are dealing with a teext file
+    # Open File as an RDD, since we are dealing with a text file
     traceFile = sc.textFile("/tmp/NASA_access_log_Jul95.gz")
     rdd_count = traceFile.count()
     logging.info("Raw Line Count: " + str(rdd_count))
@@ -120,7 +120,7 @@ def main():
 
     # Repartition to 1, because we know the dataset is trivial in size
     # Saving to csv for readability, would usually use parquet
-    top_visitors.repartition(1).write.csv('/tmp/topvisitors')
+    top_visitors.repartition(1).write.csv('/opt/topvisitors')
     logging.info("Completed visitor CSV file.")
 
     # Use a window to organize the data by date and urls
@@ -129,7 +129,7 @@ def main():
 
     # Repartition to 1, because we know the dataset is trivial in size
     # Saving to csv for readability, would usually use parquet
-    top_urls.repartition(1).write.csv('/tmp/topurls')
+    top_urls.repartition(1).write.csv('/opt/topurls')
     logging.info("Completed URL CSV file.")
 
     # Stop Spark session

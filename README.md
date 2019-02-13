@@ -10,23 +10,14 @@ Write a program in Scala or Java that:
 - Package the application in a docker container.
 
 
-## 
-Include: 
-- Logging
-- Unit tests
-- Documentation
-
-
-
 ## Program Outline
 
 ### Prerequisites: 
 The system running this program should have: 
 - Docker Installed
 - Internet Connection is assumed
-- 
 
-## Execution Instructions
+### Execution Instructions
 Step 1. Clone this repo. 
 
 Step 2. Program execution example
@@ -34,20 +25,20 @@ Execute the following command from the directory that contains trace-data.py
 
 ```bash
 sudo docker run --rm -it -p 4040:4040 \
--v $(pwd):/tmp \
+-v $(pwd):/opt \
 -v $(pwd)/trace-data.py:/trace-data.py \
 gettyimages/spark bin/spark-submit \
 --num-executors 2 /trace-data.py 2
 ```
 
-## Program Inputs 
+### Program Inputs 
 1. Command Line Argument:  
 This program takes in an integer from 1-10 used to return the top visitors and websites. 
 
 2. Trace file from NASA:  
 The program downloads this from the internet. 
 
-## Program Outputs 
+### Program Outputs 
 All program outputs are saved to the directory that the program was executed in.  
 
 Logging:  
