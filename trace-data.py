@@ -50,15 +50,15 @@ def parse_args():
 def parse_data(trace_input):
     try:
     # Following regex is purposely greedy, in order to handle double quotes in url field
-        parsedline = re.findall('\[[^\]]*\]|".*"|\S+', trace_input)
-        if len(parsedline) is not 7:
+        parsed_line = re.findall('\[[^\]]*\]|".*"|\S+', trace_input)
+        if len(parsed_line) is not 7:
             logging.warn("Bad input line: " + trace_input)
             return []
         else:
-            # Format date time object
-            dateclean = datetime.datetime.strptime(parsedline[3], '[%d/%b/%Y:%H:%M:%S %z]')
-            parsedline[3] = str(dateclean.date())
-            return parsedline
+            # Format date time object, another alternative would be to use the to_date call in Spark
+            date_clean = datetime.datetime.strptime(parsed_line[3], '[%d/%b/%Y:%H:%M:%S %z]')
+            parsed_line[3] = str(date_clean.date())
+            return parsed_line
     except Exception as e:
         logging.error(e, trace_input)
         return
