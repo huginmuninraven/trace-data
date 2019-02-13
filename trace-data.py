@@ -1,12 +1,16 @@
-from pyspark import SparkContext, SparkConf
-from pyspark.sql import SparkSession
-from pyspark.sql.window import Window
-from pyspark.sql.functions import rank, col
 import argparse
+import datetime
 import logging
 import re
 import urllib.request
 import time
+
+from pyspark import SparkContext, SparkConf
+from pyspark.sql import SparkSession
+from pyspark.sql import SQLContext
+from pyspark import sql
+from pyspark.sql.window import Window
+from pyspark.sql.functions import rank, col
 
 
 ###########
@@ -15,7 +19,7 @@ import time
 
 # Set up logging, to a file with the current timestamp.
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                    filename='trace-data-' + time.strftime('%Y_%m_%d_%H_%M' + '.log'),
+                    filename='/tmp/trace-data-' + time.strftime('%Y_%m_%d_%H_%M' + '.log'),
                     level=logging.INFO)
 
 # Log4j logging example
@@ -30,6 +34,10 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
 conf = SparkConf()
 conf.setAppName("TraceDataParser")
 sc = SparkContext(conf=conf)
+spark = SparkSession(sc)
+
+# Suppress logging after startup
+sc.setLogLevel("WARN")
 
 ####################
 # Argument Parsing #
@@ -67,7 +75,7 @@ def parsedata(traceinput):
     parsedline = re.findall('\[[^\]]*\]|".*"|\S+', traceinput)
     try:
         if len(parsedline) is not 7:
-            print("line wrong length" + traceinput)
+            print("line wrong length: " + traceinput)
             return []
         else:
             # Format date time object
@@ -78,7 +86,7 @@ def parsedata(traceinput):
         print(e)
         print(parsedline[3])
         print(traceinput)
-        return []
+        return
 
 # https://databricks.gitbooks.io/databricks-spark-knowledge-base/content/best_practices/dealing_with_bad_data.html
 def try_correct_json(json_string):
@@ -107,16 +115,21 @@ local_filename, headers = urllib.request.urlretrieve('ftp://ita.ee.lbl.gov/trace
 traceFile = sc.textFile("/tmp/NASA_access_log_Jul95.gz")
 rddcount = traceFile.count()
 logging.info("Raw Line Count: " + str(rddcount))
+print(rddcount)
+
 
 # Transform data into a dataframe
 cleanedData = traceFile.map(parsedata)
 parsedcount = cleanedData.count()
 logging.info("Parsed Line Count: " + str(parsedcount))
-
 logging.info("Percentage of Lines Parsed: " + str(parsedcount/rddcount))
 
+
+# Filter out empty columns
+# Filter out lines != length of 7
 # Rename the columns to something more human friendly
-renamed = cleanedData.toDF("visitor", "uk1", "uk2", "date", "url", "httpcode", "bytes")
+renamed = cleanedData.filter(lambda x: len(x) is 7).filter(lambda x: x is not None).toDF()
+renamed = renamed.toDF("visitor", "uk1", "uk2", "date", "url", "httpcode", "bytes")
 
 countedvisitors = renamed.groupBy(['date', 'visitor']).count()
 countedurls = renamed.groupBy(['date', 'url']).count()
@@ -124,20 +137,13 @@ countedurls = renamed.groupBy(['date', 'url']).count()
 
 # Use a window to organize the data by date and visitors
 visitorwindow = Window.partitionBy('date').orderBy('date', countedvisitors['count'].desc())
-topvisitors = countedvisitors.select('*', rank().over(window).alias('rank')).filter(col('rank') <=5).orderBy('date', 'rank')
+topvisitors = countedvisitors.select('*', rank().over(visitorwindow).alias('rank')).filter(col('rank') <=5).orderBy('date', 'rank').show()
 
 # Use a window to organize the data by date and urls
 urlwindow = Window.partitionBy('date').orderBy('date', countedurls['count'].desc())
-topurls = countedurls.select('*', rank().over(urlwindow).alias('rank')).filter(col('rank') <=5).orderBy('date','rank')
+topurls = countedurls.select('*', rank().over(urlwindow).alias('rank')).filter(col('rank') <=5).orderBy('date', 'rank').show()
+
+### TODO: Save output files here:
 
 # Stop Spark session
 spark.stop()
-
-
-
-# Create a temporary table for sql queries
-# cleanedData.createOrReplaceTempView("tracetable")
-
-# sqlDF = spark.sql("SELECT _4, COUNT(_4) FROM tracetable GROUP BY _4 ORDER BY _4")
-
-# spark.sql("SELECT _4, COUNT(_4) as cnt FROM tracetable GROUP BY _1, _4 ORDER BY cnt DESC LIMIT 5").take(5)
