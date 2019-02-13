@@ -7,8 +7,6 @@ import time
 
 from pyspark import SparkContext, SparkConf
 from pyspark.sql import SparkSession
-from pyspark.sql import SQLContext
-from pyspark import sql
 from pyspark.sql.window import Window
 from pyspark.sql.functions import rank, col
 
@@ -18,8 +16,7 @@ from pyspark.sql.functions import rank, col
 conf = SparkConf()
 conf.setAppName("TraceDataParser")
 sc = SparkContext(conf=conf)
-spark = SparkSession(sc)
-
+spark = SparkSession.builder.appName('abc').getOrCreate()
 # Suppress Spark INFO logging after startup
 sc.setLogLevel("WARN")
 
@@ -40,9 +37,9 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
 def parse_args():
     # Declare a positional argument, input is an integer.
     parser = argparse.ArgumentParser()
-    parser.add_argument("topn", type=int, help="Enter an integer between 1 and 10 to calculate the top visitors and websites")
+    parser.add_argument("topn", type=int, choices=range(1,11), help="Enter an integer between 1 and 10 to calculate the top visitors and websites")
     args = parser.parse_args()
-    logging.info("Calculating " + str(args.topn) + " top vistors and urls." )
+    logging.info("Calculating " + str(args.topn) + " top visitors and urls." )
     return args.topn
 
 
@@ -133,7 +130,7 @@ def main():
     logging.info("Completed URL CSV file.")
 
     # Stop Spark session
-    spark.stop()
+    sc.stop()
 
 if __name__ == "__main__":
     main()

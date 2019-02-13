@@ -28,7 +28,7 @@ sudo docker run --rm -it -p 4040:4040 \
 -v $(pwd):/opt \
 -v $(pwd)/trace-data.py:/trace-data.py \
 gettyimages/spark bin/spark-submit \
---num-executors 2 /trace-data.py 2
+/trace-data.py 7
 ```
 
 ### Program Inputs 
