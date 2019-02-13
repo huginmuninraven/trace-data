@@ -49,4 +49,16 @@ Top N Visitors:
     Format: `Date|Visitor|Count|Rank`
 
 Top N Urls:  
-- A CSV file that contains the top-n URls visited each day.  
+- A CSV file that contains the top-n URls visited each day. 
+
+
+
+## Future Work: 
+
+Run this on a spark cluster, using the docker-compose.yml
+Prerequisites: 
+Install docker-compose
+
+Instructions:
+`docker-compose up` 
+`bin/run-example --num-executors 2 --executor-memory 2G SparkPi 10000` 
