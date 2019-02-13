@@ -12,70 +12,47 @@ from pyspark import sql
 from pyspark.sql.window import Window
 from pyspark.sql.functions import rank, col
 
-
-###########
-# Logging #
-###########
-
-# Set up logging, to a file with the current timestamp.
-logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
-                    filename='/tmp/trace-data-' + time.strftime('%Y_%m_%d_%H_%M' + '.log'),
-                    level=logging.INFO)
-
-# Log4j logging example
-# sparkLogger = sc._jvm.org.apache.log4j
-# log = sparkLogger.logManager.getLogger(__name__)
-# log.info("pyspark script logger initialized")
-
 ###############
 # Spark Setup #
 ###############
-
 conf = SparkConf()
 conf.setAppName("TraceDataParser")
 sc = SparkContext(conf=conf)
 spark = SparkSession(sc)
 
-# Suppress logging after startup
+# Suppress Spark INFO logging after startup
 sc.setLogLevel("WARN")
 
-####################
+
+###########
+# Logging #
+###########
+# Set up logging, to a file with the current timestamp.
+# In a distributed cluster,  leverage the Spark History Server
+# and send the data out for visualization to an external store (Elasticsearch/Grafana/Prometheus)
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
+                    filename='/tmp/trace-data-' + time.strftime('%Y_%m_%d_%H_%M' + '.log'),
+                    level=logging.INFO)
+
+
+
 # Argument Parsing #
-####################
-
-# Argument parsing: Declare a positional argument, input is an integer.
-parser = argparse.ArgumentParser()
-parser.add_argument("topn", type=int, help="Enter an integer between 1 and 10 to calculate the top visitors and websites")
-args = parser.parse_args()
-
-print(args.topn)
-
-
-'''
-from urllib.request import Request, urlopen
-from urllib.error import URLError
-req = Request(ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz)
-try:
-    response = urlopen(req)
-except URLError as e:
-    if hasattr(e, 'reason'):
-        print('We failed to reach a server.')
-        print('Reason: ', e.reason)
-    elif hasattr(e, 'code'):
-        print('The server couldn\'t fulfill the request.')
-        print('Error code: ', e.code)
-else:
-    # everything is fine
-'''
+def parse_args():
+    # Declare a positional argument, input is an integer.
+    parser = argparse.ArgumentParser()
+    parser.add_argument("topn", type=int, help="Enter an integer between 1 and 10 to calculate the top visitors and websites")
+    args = parser.parse_args()
+    logging.info("Calculating " + str(args.topn) + " top vistors and urls." )
+    return args.topn
 
 
 # Parses each line of trace data out into fields, handling groupings.
-def parsedata(traceinput):
-    # Following regex is purposely greedy, in order to handle double quotes in url field
-    parsedline = re.findall('\[[^\]]*\]|".*"|\S+', traceinput)
+def parse_data(trace_input):
     try:
+    # Following regex is purposely greedy, in order to handle double quotes in url field
+        parsedline = re.findall('\[[^\]]*\]|".*"|\S+', trace_input)
         if len(parsedline) is not 7:
-            print("line wrong length: " + traceinput)
+            logging.warn("Bad input line: " + trace_input)
             return []
         else:
             # Format date time object
@@ -83,67 +60,80 @@ def parsedata(traceinput):
             parsedline[3] = str(dateclean.date())
             return parsedline
     except Exception as e:
-        print(e)
-        print(parsedline[3])
-        print(traceinput)
+        logging.error(e, trace_input)
         return
 
-# https://databricks.gitbooks.io/databricks-spark-knowledge-base/content/best_practices/dealing_with_bad_data.html
-def try_correct_json(json_string):
-  try:
-    # First check if the json is okay.
-    json.loads(json_string)
-    return [json_string]
-  except ValueError:
+    '''
+    from urllib.request import Request, urlopen
+    from urllib.error import URLError
+    req = Request(ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz)
     try:
-      # If not, try correcting it by adding a ending brace.
-      try_to_correct_json = json_string + "}"
-      json.loads(try_to_correct_json)
-      return [try_to_correct_json]
-    except ValueError:
-      # The malformed json input can't be recovered, drop this input.
-      return []
+        response = urlopen(req)
+    except URLError as e:
+        if hasattr(e, 'reason'):
+            print('We failed to reach a server.')
+            print('Reason: ', e.reason)
+        elif hasattr(e, 'code'):
+            print('The server couldn\'t fulfill the request.')
+            print('Error code: ', e.code)
+    else:
+        # everything is fine
+    '''
+
 
 ################
 # Main Program #
 ################
 
-# Downloads file locally to the /tmp directory, since we aren't using S3 or HDFS
-local_filename, headers = urllib.request.urlretrieve('ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz', '/tmp/NASA_access_log_Jul95.gz')
+def main():
+    topn = parse_args()
 
-# Open File as an RDD, since we are dealing with a teext file
-traceFile = sc.textFile("/tmp/NASA_access_log_Jul95.gz")
-rddcount = traceFile.count()
-logging.info("Raw Line Count: " + str(rddcount))
-print(rddcount)
+    # Downloads file locally to the /tmp directory, since we aren't using S3 or HDFS
+    urllib.request.urlretrieve('ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz', '/tmp/NASA_access_log_Jul95.gz')
 
+    # Open File as an RDD, since we are dealing with a teext file
+    traceFile = sc.textFile("/tmp/NASA_access_log_Jul95.gz")
+    rdd_count = traceFile.count()
+    logging.info("Raw Line Count: " + str(rdd_count))
 
-# Transform data into a dataframe
-cleanedData = traceFile.map(parsedata)
-parsedcount = cleanedData.count()
-logging.info("Parsed Line Count: " + str(parsedcount))
-logging.info("Percentage of Lines Parsed: " + str(parsedcount/rddcount))
+    # Parses RDD into a list and caches the RDD for future use.
+    cleanedData = traceFile.map(parse_data).cache()
 
+    # Filter out lines != length of 7 and empty rows
+    filtered_data = cleanedData.filter(lambda x: len(x) is 7).filter(lambda x: x is not None).toDF()
 
-# Filter out empty columns
-# Filter out lines != length of 7
-# Rename the columns to something more human friendly
-renamed = cleanedData.filter(lambda x: len(x) is 7).filter(lambda x: x is not None).toDF()
-renamed = renamed.toDF("visitor", "uk1", "uk2", "date", "url", "httpcode", "bytes")
+    # Rename the columns to something more human friendly
+    renamed = filtered_data.toDF("visitor", "uk1", "uk2", "date", "url", "httpcode", "bytes")
 
-countedvisitors = renamed.groupBy(['date', 'visitor']).count()
-countedurls = renamed.groupBy(['date', 'url']).count()
+    # Calculate and log percentage of lines that were transformed successfully
+    df_count = renamed.count()
+    logging.info("Parsed Line Count: " + str(df_count))
+    logging.info("Percentage of Lines Parsed: " + str(df_count/rdd_count))
 
+    # Group data by the visitors / urls, so we can run a window over them
+    counted_visitors = renamed.groupBy(['date', 'visitor']).count()
+    counted_urls = renamed.groupBy(['date', 'url']).count()
 
-# Use a window to organize the data by date and visitors
-visitorwindow = Window.partitionBy('date').orderBy('date', countedvisitors['count'].desc())
-topvisitors = countedvisitors.select('*', rank().over(visitorwindow).alias('rank')).filter(col('rank') <=5).orderBy('date', 'rank').show()
+    # Use a window to organize the data by date and visitors
+    visitor_window = Window.partitionBy('date').orderBy('date', counted_visitors['count'].desc())
+    top_visitors = counted_visitors.select('*', rank().over(visitor_window).alias('rank')).filter(col('rank') <=topn).orderBy('date', 'rank')
 
-# Use a window to organize the data by date and urls
-urlwindow = Window.partitionBy('date').orderBy('date', countedurls['count'].desc())
-topurls = countedurls.select('*', rank().over(urlwindow).alias('rank')).filter(col('rank') <=5).orderBy('date', 'rank').show()
+    # Repartition to 1, because we know the dataset is trivial in size
+    # Saving to csv for readability, would usually use parquet
+    top_visitors.repartition(1).write.csv('/tmp/topvisitors')
+    logging.info("Completed visitor CSV file.")
 
-### TODO: Save output files here:
+    # Use a window to organize the data by date and urls
+    url_window = Window.partitionBy('date').orderBy('date', counted_urls['count'].desc())
+    top_urls = counted_urls.select('*', rank().over(url_window).alias('rank')).filter(col('rank') <=topn).orderBy('date', 'rank')
 
-# Stop Spark session
-spark.stop()
+    # Repartition to 1, because we know the dataset is trivial in size
+    # Saving to csv for readability, would usually use parquet
+    top_urls.repartition(1).write.csv('/tmp/topurls')
+    logging.info("Completed URL CSV file.")
+
+    # Stop Spark session
+    spark.stop()
+
+if __name__ == "__main__":
+    main()
