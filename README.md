@@ -26,9 +26,9 @@ Execute the following command from the directory that contains trace-data.py
 ```bash
 sudo docker run --rm -it -p 4040:4040 \
 -v $(pwd):/opt \
--v $(pwd)/trace-data.py:/trace-data.py \
+-v $(pwd)/tracedata.py:/tracedata.py \
 gettyimages/spark bin/spark-submit \
-/trace-data.py 7
+/tracedata.py 7
 ```
 
 ### Program Inputs 
@@ -53,32 +53,41 @@ Top N Urls:
 
 
 ## Testing
-Spark jobs should be broken down into individual functions, so they can be atomically tested. 
-This testing framework is modeled after the following example: 
+Spark jobs should be broken down into individual functions, so they can be atomically tested.  
+This testing framework is modeled after the following example:  
 https://engblog.nextdoor.com/unit-testing-apache-spark-with-py-test-3b8970dc013b
 
 There is probably a better way to do this in Spark2 with Scala.
 
 ### Prerequisites: 
 - Spark installed on the system
-- pytest-spark installed https://github.com/malexer/pytest-spark/blob/master/README.rst
-  `pip install pytest-spark`
-- Configure pytest.ini with path to pyspark `/opt/spark-2.4...`
-- 
+- pytest installed
+  `conda install pytest`  
+- pytest-spark installed https://github.com/malexer/pytest-spark/blob/master/README.rst  
+  `pip install pytest-spark`  
+- Configure pytest.ini with path to pyspark  
+    `/opt/spark-2.4...`
+
+### Running Tests
+`cd` to this repo, that has been cloned.  
+`/opt/miniconda/3.7/bin/python3.7 -m pytest`
 
 
 ## Future Work: 
 
 ### Cluster mode 
 Run this on a spark cluster, using the docker-compose.yml, or possibly on Mesos/Kubernetes
-Prerequisites: 
+
+#### Prerequisites: 
 - Install docker-compose
 
-
-Instructions:
-`docker-compose up` 
-`bin/run-example --num-executors 2 --executor-memory 2G SparkPi 10000` 
-
+#### Instructions:  
+`docker-compose up`  
+`bin/run-example --num-executors 2 --executor-memory 2G SparkPi 10000`  
 
 
-### Complete test coverage
+
+### Complete test coverage  
+- Refactor the code into functions   
+- Write test cases for each one  
+- Use Coverage to look for missing tests  
