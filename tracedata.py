@@ -32,24 +32,23 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     level=logging.INFO)
 
 
-
 # Argument Parsing
 def parse_args():
     # Declare a positional argument, input is an integer.
     parser = argparse.ArgumentParser()
-    parser.add_argument("topn", type=int, choices=range(1,11), help="Enter an integer between 1 and 10 to calculate the top visitors and websites")
+    parser.add_argument("topn", type=int, choices=range(1, 11), help="Enter an integer between 1 and 10 to calculate the top visitors and websites")
     args = parser.parse_args()
-    logging.info("Calculating " + str(args.topn) + " top visitors and urls." )
+    logging.info("Calculating " + str(args.topn) + " top visitors and urls.")
     return args.topn
 
 
 # Parses each line of trace data out into fields, handling groupings.
 def parse_data(trace_input):
     try:
-    # Following regex is purposely greedy, in order to handle double quotes in url field
+        # Following regex is purposely greedy, in order to handle double quotes in url field
         parsed_line = re.findall('\[[^\]]*\]|".*"|\S+', trace_input)
         if len(parsed_line) is not 7:
-            logging.warn("Bad input line: " + trace_input)
+            logging.warning("Bad input line: " + trace_input)
             return []
         else:
             # Format date time object, another alternative would be to use the to_date call in Spark
@@ -59,23 +58,6 @@ def parse_data(trace_input):
     except Exception as e:
         logging.error(e, trace_input)
         return
-
-    '''
-    from urllib.request import Request, urlopen
-    from urllib.error import URLError
-    req = Request(ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz)
-    try:
-        response = urlopen(req)
-    except URLError as e:
-        if hasattr(e, 'reason'):
-            print('We failed to reach a server.')
-            print('Reason: ', e.reason)
-        elif hasattr(e, 'code'):
-            print('The server couldn\'t fulfill the request.')
-            print('Error code: ', e.code)
-    else:
-        # everything is fine
-    '''
 
 
 ################
@@ -89,15 +71,15 @@ def main():
     urllib.request.urlretrieve('ftp://ita.ee.lbl.gov/traces/NASA_access_log_Jul95.gz', '/tmp/NASA_access_log_Jul95.gz')
 
     # Open File as an RDD, since we are dealing with a text file
-    traceFile = sc.textFile("/tmp/NASA_access_log_Jul95.gz")
-    rdd_count = traceFile.count()
+    trace_file = sc.textFile("/tmp/NASA_access_log_Jul95.gz")
+    rdd_count = trace_file.count()
     logging.info("Raw Line Count: " + str(rdd_count))
 
     # Parses RDD into a list and caches the RDD for future use.
-    cleanedData = traceFile.map(parse_data).cache()
+    cleaned_data = trace_file.map(parse_data).cache()
 
     # Filter out lines != length of 7 and empty rows
-    filtered_data = cleanedData.filter(lambda x: len(x) is 7).filter(lambda x: x is not None).toDF()
+    filtered_data = cleaned_data.filter(lambda x: len(x) is 7).filter(lambda x: x is not None).toDF()
 
     # Rename the columns to something more human friendly
     renamed = filtered_data.toDF("visitor", "uk1", "uk2", "date", "url", "httpcode", "bytes")
@@ -131,6 +113,7 @@ def main():
 
     # Stop Spark session
     sc.stop()
+
 
 if __name__ == "__main__":
     main()

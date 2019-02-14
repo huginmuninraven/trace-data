@@ -49,4 +49,36 @@ Top N Visitors:
     Format: `Date|Visitor|Count|Rank`
 
 Top N Urls:  
-- A CSV file that contains the top-n URls visited each day.  
+- A CSV file that contains the top-n URls visited each day. 
+
+
+## Testing
+Spark jobs should be broken down into individual functions, so they can be atomically tested. 
+This testing framework is modeled after the following example: 
+https://engblog.nextdoor.com/unit-testing-apache-spark-with-py-test-3b8970dc013b
+
+There is probably a better way to do this in Spark2 with Scala.
+
+### Prerequisites: 
+- Spark installed on the system
+- pytest-spark installed https://github.com/malexer/pytest-spark/blob/master/README.rst
+  `pip install pytest-spark`
+- Configure pytest.ini with path to pyspark `/opt/spark-2.4...`
+- 
+
+
+## Future Work: 
+
+### Cluster mode 
+Run this on a spark cluster, using the docker-compose.yml, or possibly on Mesos/Kubernetes
+Prerequisites: 
+- Install docker-compose
+
+
+Instructions:
+`docker-compose up` 
+`bin/run-example --num-executors 2 --executor-memory 2G SparkPi 10000` 
+
+
+
+### Complete test coverage
